@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Zeiterfassung</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<style>
+  :root{--bg:#f4f1ea;--ink:#1d2320;--mut:#6b736e;--line:#d9d4c7;--acc:#1f5f4a;--card:#fffdf8;--warn:#b3402a}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,sans-serif}
+  main{max-width:760px;margin:0 auto;padding:24px 16px 64px}
+  h1{font-size:22px;margin:0}
+  header{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px}
+  section{background:var(--card);border:1px solid var(--line);padding:18px;margin-bottom:18px}
+  h2{font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--mut);margin:0 0 12px}
+  label{display:block;font-size:13px;color:var(--mut);margin:10px 0 4px}
+  input,select,textarea{width:100%;padding:9px 10px;border:1px solid var(--line);background:#fff;font:inherit;color:inherit}
+  input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid var(--acc);outline-offset:1px}
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  @media(max-width:520px){.row{grid-template-columns:1fr}}
+  button{margin-top:14px;padding:9px 16px;background:var(--acc);color:#fff;border:0;font:inherit;cursor:pointer}
+  button.ghost{background:none;color:var(--ink);border:1px solid var(--line);margin:0}
+  button:disabled{opacity:.5;cursor:wait}
+  .msg{margin-top:10px;font-size:13px;min-height:1em}.err{color:var(--warn)}.ok{color:var(--acc)}
+  table{width:100%;border-collapse:collapse;font-size:14px}
+  td,th{text-align:left;padding:7px 6px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{font-weight:600;color:var(--mut);font-size:12px}
+  .bar{height:6px;background:var(--line);margin-top:4px}.bar i{display:block;height:100%;background:var(--acc)}
+  .hidden{display:none}
+</style>
+</head>
+<body>
+<main>
+  <header><h1>Zeiterfassung</h1><button class="ghost hidden" id="logout">Abmelden</button></header>
+
+  <!-- 1) Konfiguration (einmalig, wird im Browser-Speicher der Seite gehalten) -->
+  <section id="cfg">
+    <h2>Verbindung</h2>
+    <label>Supabase URL</label><input id="url" placeholder="https://xxxx.supabase.co">
+    <label>Anon Key (öffentlicher Key)</label><input id="key" placeholder="eyJ...">
+    <button id="connect">Verbinden</button>
+    <div class="msg err" id="cfgmsg"></div>
+  </section>
+
+  <!-- 2) Login -->
+  <section id="login" class="hidden">
+    <h2>Anmelden</h2>
+    <div class="row"><div><label>E-Mail</label><input id="em" type="email" autocomplete="username"></div>
+    <div><label>Passwort</label><input id="pw" type="password" autocomplete="current-password"></div></div>
+    <button id="signin">Anmelden</button><div class="msg err" id="loginmsg"></div>
+  </section>
+
+  <div id="app" class="hidden">
+    <section>
+      <h2>Zeit erfassen</h2>
+      <form id="form">
+        <div class="row">
+          <div><label>Mitarbeiter</label><input id="emp" required></div>
+          <div><label>Datum</label><input id="date" type="date" required></div>
+        </div>
+        <div class="row">
+          <div><label>Projekt</label><select id="proj" required></select></div>
+          <div><label>Dauer (Minuten, mind. 5)</label><input id="hrs" type="number" step="1" min="5" max="1440" required placeholder="z. B. 90"></div>
+        </div>
+        <label>Was wurde gearbeitet?</label><textarea id="desc" rows="3" required></textarea>
+        <button type="submit">Eintrag speichern</button>
+        <div class="msg" id="msg"></div>
+      </form>
+    </section>
+
+    <section>
+      <h2>Projektübersicht</h2>
+      <table><thead><tr><th>Kunde</th><th>Verbraucht / freigegeben</th></tr></thead><tbody id="ptable"></tbody></table>
+    </section>
+
+    <section>
+      <h2>Meine letzten Einträge</h2>
+      <table><thead><tr><th>Datum</th><th>Projekt</th><th>Dauer</th><th>Tätigkeit</th></tr></thead><tbody id="etable"></tbody></table>
+    </section>
+  </div>
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+let sb, projects = [];
+const fmt = h => { const m = Math.round(Number(h) * 60); return Math.floor(m / 60) + ":" + String(m % 60).padStart(2, "0") + " h"; };
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const say = (el, t, ok) => { el.textContent = t; el.className = "msg " + (ok ? "ok" : "err"); };
+
+// Zum Fest-Eintragen: hier URL/Key direkt setzen, dann entfällt das Formular.
+const PRESET = { url: "https://buancuvsjxokxijbnrxi.supabase.co", key: "sb_publishable_SOw8SiWgP7NQ2mr_MI0j5w_tdMsADsF" };
+
+function storageOk() { try { localStorage.setItem("t","1"); localStorage.removeItem("t"); return true; } catch { return false; } }
+function showLogin(msg) { $("login").classList.remove("hidden"); if (msg) say($("loginmsg"), msg); }
+
+function connect(url, key) {
+  if (typeof supabase === "undefined") { $("cfg").classList.remove("hidden"); return say($("cfgmsg"), "Supabase-Bibliothek konnte nicht geladen werden (Internetverbindung?)."); }
+  const mem = {}; // Fallback, falls der Browser keinen Speicher erlaubt (z. B. in Vorschau-Fenstern)
+  const opts = storageOk() ? {} : { auth: { storage: { getItem: k => mem[k] ?? null, setItem: (k, v) => { mem[k] = v; }, removeItem: k => { delete mem[k]; } } } };
+  sb = supabase.createClient(url, key, opts);
+  $("cfg").classList.add("hidden");
+  sb.auth.getSession()
+    .then(({ data }) => data.session ? start(data.session) : showLogin())
+    .catch(e => showLogin("Verbindungsproblem: " + e.message));
+}
+$("connect").onclick = () => {
+  const u = $("url").value.trim(), k = $("key").value.trim();
+  if (!/^https:\/\/.+\.supabase\.co/.test(u) || !k) return say($("cfgmsg"), "Bitte gültige URL und Key eingeben.");
+  connect(u, k);
+};
+if (PRESET.url && PRESET.key) connect(PRESET.url, PRESET.key);
+
+$("signin").onclick = async () => {
+  const { data, error } = await sb.auth.signInWithPassword({ email: $("em").value, password: $("pw").value });
+  if (error) return say($("loginmsg"), "Login fehlgeschlagen: " + error.message);
+  $("login").classList.add("hidden"); start(data.session);
+};
+$("logout").onclick = async () => { await sb.auth.signOut(); location.reload(); };
+
+async function start(session) {
+  $("app").classList.remove("hidden"); $("logout").classList.remove("hidden");
+  $("emp").value = session.user.user_metadata?.name || session.user.email;
+  $("date").value = new Date().toISOString().slice(0, 10);
+  await refresh();
+}
+
+async function refresh() {
+  const [p, e] = await Promise.all([
+    sb.from("projects").select("*").order("customer"),
+    sb.from("time_entries").select("*, projects(customer)").order("created_at", { ascending: false }),
+  ]);
+  if (p.error || e.error) return say($("msg"), (p.error || e.error).message);
+  projects = p.data;
+  const used = {}; e.data.forEach(x => used[x.project_id] = (used[x.project_id] || 0) + Number(x.hours));
+  const sel = $("proj"), cur = sel.value;
+  sel.innerHTML = projects.map(x => `<option value="${x.id}">${esc(x.customer)}</option>`).join("");
+  if (cur) sel.value = cur;
+  $("ptable").innerHTML = projects.map(x => {
+    const u = used[x.id] || 0, pct = Math.min(100, u / x.approved_hours * 100);
+    return `<tr><td>${esc(x.customer)}<br><small style="color:var(--mut)">${esc(x.email)}</small></td>
+      <td>${u.toFixed(2)} / ${Number(x.approved_hours).toFixed(2)} h<div class="bar"><i style="width:${pct}%;${pct>=100?'background:var(--warn)':''}"></i></div></td></tr>`;
+  }).join("") || `<tr><td colspan=2>Noch keine Projekte.</td></tr>`;
+  const mine = e.data.slice(0, 15);
+  $("etable").innerHTML = mine.map(x => `<tr><td>${esc(x.work_date)}</td><td>${esc(x.projects?.customer)}</td><td>${fmt(x.hours)}</td><td>${esc(x.description)}</td></tr>`).join("")
+    || `<tr><td colspan=4>Noch keine Einträge.</td></tr>`;
+}
+
+$("form").onsubmit = async ev => {
+  ev.preventDefault();
+  const btn = ev.submitter; btn.disabled = true;
+  const { error } = await sb.from("time_entries").insert({
+    employee: $("emp").value.trim(), work_date: $("date").value, project_id: $("proj").value,
+    hours: parseInt($("hrs").value, 10) / 60, description: $("desc").value.trim(),
+  });
+  btn.disabled = false;
+  if (error) return say($("msg"), "Fehler: " + error.message);
+  say($("msg"), "Gespeichert.", true); $("hrs").value = ""; $("desc").value = ""; refresh();
+};
+
+</script>
+</body>
+</html>
