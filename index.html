@@ -6,49 +6,116 @@
 <title>Zeiterfassung</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <style>
-  :root{--bg:#f4f1ea;--ink:#1d2320;--mut:#6b736e;--line:#d9d4c7;--acc:#1f5f4a;--card:#fffdf8;--warn:#b3402a}
-  *{box-sizing:border-box}
-  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,sans-serif}
-  main{max-width:760px;margin:0 auto;padding:24px 16px 64px}
-  header{display:flex;justify-content:flex-end;margin-bottom:16px}
-  header:not(:has(button:not(.hidden))){display:none}
-  section{background:var(--card);border:1px solid var(--line);padding:18px;margin-bottom:18px}
-  h2{font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--mut);margin:0 0 12px}
-  label{display:block;font-size:13px;color:var(--mut);margin:10px 0 4px}
-  input,select,textarea{width:100%;padding:9px 10px;border:1px solid var(--line);background:#fff;font:inherit;color:inherit}
-  input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid var(--acc);outline-offset:1px}
-  .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-  @media(max-width:520px){.row{grid-template-columns:1fr}}
-  button{margin-top:14px;padding:9px 16px;background:var(--acc);color:#fff;border:0;font:inherit;cursor:pointer}
-  button.ghost{background:none;color:var(--ink);border:1px solid var(--line);margin:0}
-  button:disabled{opacity:.5;cursor:wait}
-  .msg{margin-top:10px;font-size:13px;min-height:1em}.err{color:var(--warn)}.ok{color:var(--acc)}
-  table{width:100%;border-collapse:collapse;font-size:14px}
-  td,th{text-align:left;padding:7px 6px;border-bottom:1px solid var(--line);vertical-align:top}
-  th{font-weight:600;color:var(--mut);font-size:12px}
-  .bar{height:6px;background:var(--line);margin-top:4px}.bar i{display:block;height:100%;background:var(--acc)}
-  .hidden{display:none}
+/* GRF web fonts - zentral im Repository grf-fonts (GitHub Pages) */
+@font-face {
+  font-family: "CircularGraubuendenWeb";
+  src: url("https://graubuendenferien-sudo.github.io/grf-fonts/CirculargraubuendenWeb-Book.woff2") format("woff2");
+  font-weight: 400; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: "CircularGraubuendenWeb";
+  src: url("https://graubuendenferien-sudo.github.io/grf-fonts/CirculargraubuendenWeb-Bold.woff2") format("woff2");
+  font-weight: 600 700; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: "TheMix";
+  src: url("https://graubuendenferien-sudo.github.io/grf-fonts/TheMix_500_.woff2") format("woff2");
+  font-weight: 400 500; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: "TheMix";
+  src: url("https://graubuendenferien-sudo.github.io/grf-fonts/TheMix_700_.woff2") format("woff2");
+  font-weight: 600 700; font-style: normal; font-display: swap;
+}
+
+:root{
+  --granit:#79775F; --granit-75:#A19E8C; --granit-50:#C0BFB2; --granit-25:#E0DFD9;
+  --granit-10:#F2F2F0; --granit-5:#F9F9F7; --granit-hover:#666450;
+  --grf-black:#191813; --grf-black-80:#474642;
+  --font-circular:"CircularGraubuendenWeb","Circular Std","CircularStd","DM Sans",system-ui,-apple-system,"Segoe UI",Arial,sans-serif;
+  --font-mix:"TheMix","TheMixOsF","TheMix Plain","Alegreya Sans","Gill Sans","Trebuchet MS",sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;height:auto}
+body{background:#fff;color:var(--grf-black);font-family:var(--font-circular);font-size:16px;line-height:24px;-webkit-text-size-adjust:100%}
+button,a{touch-action:manipulation}
+main{max-width:760px;margin:0 auto;padding:24px 16px 48px}
+
+/* Kopfzeile: nur Abmelden-Button (Titel/Topline stehen in der Landingpage) */
+.page-intro{margin:0 0 24px;display:flex;justify-content:flex-end}
+.page-intro:not(:has(button:not(.hidden))){display:none}
+
+h2{font-family:var(--font-mix);font-weight:400;font-size:24px;line-height:30px;margin:0 0 16px;color:var(--grf-black)}
+section{background:var(--granit-5);border:1px solid var(--granit-25);padding:24px 16px;margin-bottom:24px}
+@media(min-width:600px){section{padding:24px}}
+
+label{display:block;font-size:13px;line-height:16px;color:var(--grf-black-80);margin:16px 0 4px}
+input,select,textarea{width:100%;padding:12px;border:1px solid var(--granit-50);border-radius:0;background:#fff;font:inherit;color:var(--grf-black);-webkit-appearance:none;appearance:none}
+select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2379775F' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;background-size:16px;padding-right:36px}
+input:hover,select:hover,textarea:hover{border-color:var(--granit)}
+:focus-visible{outline:2px solid var(--granit-hover);outline-offset:2px}
+::placeholder{color:var(--granit-75)}
+.row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 16px}
+.row>div{min-width:0}
+@media(max-width:520px){.row{grid-template-columns:minmax(0,1fr)}}
+
+/* Buttons */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:10px;margin-top:24px;padding:16px 32px;border:1px solid var(--granit);border-radius:0;background:var(--granit);color:#fff;font-family:var(--font-circular);font-weight:700;font-size:12px;line-height:16px;text-transform:uppercase;letter-spacing:.96px;cursor:pointer}
+.btn:hover,.btn:active{background:var(--granit-hover);border-color:var(--granit-hover)}
+.btn:disabled{background:var(--granit-25);border-color:var(--granit-25);color:var(--granit-5);cursor:wait}
+.btn svg{width:16px;height:16px;flex:none}
+.btn-secondary{margin-top:0;background:#fff;color:var(--granit)}
+.btn-secondary:hover,.btn-secondary:active{background:var(--granit-10);color:var(--granit-hover);border-color:var(--granit-hover)}
+
+/* Meldungen (Granit-Familie) */
+.msg{margin-top:16px;font-size:14px;line-height:20px;min-height:1em;overflow-wrap:anywhere}
+.msg.err,.msg.ok{padding:8px 12px;background:#fff;border:1px solid var(--granit-25);border-left:4px solid var(--granit-hover);color:var(--grf-black)}
+.msg.ok{border-left-color:var(--granit)}
+.msg:empty{display:none}
+
+/* Tabellen */
+.tablewrap{width:100%}
+table{width:100%;border-collapse:collapse;font-size:15px;line-height:22px}
+td,th{text-align:left;padding:12px 8px;border-bottom:1px solid var(--granit-25);vertical-align:top;overflow-wrap:anywhere;hyphens:auto;-webkit-hyphens:auto}
+td:first-child,th:first-child{padding-left:0}
+td:last-child,th:last-child{padding-right:0}
+th{font-weight:700;color:var(--granit-hover);font-size:12px;line-height:16px;text-transform:uppercase;letter-spacing:.6px;border-bottom:1px solid var(--granit)}
+.sub{font-size:13px;line-height:16px;color:var(--grf-black-80)}
+.num{white-space:nowrap}
+.bar{height:6px;background:var(--granit-25);margin-top:8px}
+.bar i{display:block;height:100%;background:var(--granit)}
+.bar.full i{background:var(--granit-hover)}
+.flag{display:block;margin-top:4px;font-size:12px;line-height:16px;font-weight:700;color:var(--granit-hover)}
+.hidden{display:none!important}
 </style>
 </head>
 <body>
 <main>
-  <header><button class="ghost hidden" id="logout">Abmelden</button></header>
+  <header class="page-intro">
+    <button class="btn btn-secondary hidden" id="logout" type="button">
+      <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>
+      Abmelden
+    </button>
+  </header>
 
-  <!-- 1) Konfiguration (einmalig, wird im Browser-Speicher der Seite gehalten) -->
-  <section id="cfg">
+  <!-- 1) Konfiguration -->
+  <section id="cfg" class="hidden">
     <h2>Verbindung</h2>
-    <label>Supabase URL</label><input id="url" placeholder="https://xxxx.supabase.co">
-    <label>Anon Key (öffentlicher Key)</label><input id="key" placeholder="eyJ...">
-    <button id="connect">Verbinden</button>
+    <label for="url">Supabase URL</label><input id="url" placeholder="https://xxxx.supabase.co">
+    <label for="key">Anon Key (öffentlicher Key)</label><input id="key" placeholder="eyJ...">
+    <button class="btn" id="connect" type="button">Verbinden</button>
     <div class="msg err" id="cfgmsg"></div>
   </section>
 
   <!-- 2) Login -->
   <section id="login" class="hidden">
     <h2>Anmelden</h2>
-    <div class="row"><div><label>E-Mail</label><input id="em" type="email" autocomplete="username"></div>
-    <div><label>Passwort</label><input id="pw" type="password" autocomplete="current-password"></div></div>
-    <button id="signin">Anmelden</button><div class="msg err" id="loginmsg"></div>
+    <div class="row">
+      <div><label for="em">E-Mail</label><input id="em" type="email" autocomplete="username"></div>
+      <div><label for="pw">Passwort</label><input id="pw" type="password" autocomplete="current-password"></div>
+    </div>
+    <button class="btn" id="signin" type="button">Anmelden</button>
+    <div class="msg err" id="loginmsg"></div>
   </section>
 
   <div id="app" class="hidden">
@@ -56,27 +123,30 @@
       <h2>Zeit erfassen</h2>
       <form id="form">
         <div class="row">
-          <div><label>Mitarbeiter</label><input id="emp" required></div>
-          <div><label>Datum</label><input id="date" type="date" required></div>
+          <div><label for="emp">Mitarbeiter</label><input id="emp" required></div>
+          <div><label for="date">Datum</label><input id="date" type="date" required></div>
         </div>
         <div class="row">
-          <div><label>Projekt</label><select id="proj" required></select></div>
-          <div><label>Dauer (Minuten, mind. 5)</label><input id="hrs" type="number" step="1" min="5" max="1440" required placeholder="z. B. 90"></div>
+          <div><label for="proj">Projekt</label><select id="proj" required></select></div>
+          <div><label for="hrs">Dauer (Minuten, mind. 5)</label><input id="hrs" type="number" step="1" min="5" max="1440" required placeholder="z. B. 90"></div>
         </div>
-        <label>Was wurde gearbeitet?</label><textarea id="desc" rows="3" required></textarea>
-        <button type="submit">Eintrag speichern</button>
+        <label for="desc">Was wurde gearbeitet?</label><textarea id="desc" rows="3" required></textarea>
+        <button class="btn" type="submit">
+          <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8"/><path d="M7 3v5h8"/></svg>
+          Eintrag speichern
+        </button>
         <div class="msg" id="msg"></div>
       </form>
     </section>
 
     <section>
       <h2>Projektübersicht</h2>
-      <table><thead><tr><th>Kunde</th><th>Verbraucht / freigegeben</th></tr></thead><tbody id="ptable"></tbody></table>
+      <div class="tablewrap"><table><thead><tr><th>Kunde</th><th>Verbraucht / freigegeben</th></tr></thead><tbody id="ptable"></tbody></table></div>
     </section>
 
     <section>
       <h2>Meine letzten Einträge</h2>
-      <table><thead><tr><th>Datum</th><th>Projekt</th><th>Dauer</th><th>Tätigkeit</th></tr></thead><tbody id="etable"></tbody></table>
+      <div class="tablewrap"><table><thead><tr><th>Datum</th><th>Projekt</th><th>Dauer</th><th>Tätigkeit</th></tr></thead><tbody id="etable"></tbody></table></div>
     </section>
   </div>
 </main>
@@ -116,6 +186,7 @@ $("signin").onclick = async () => {
   if (error) return say($("loginmsg"), "Login fehlgeschlagen: " + error.message);
   $("login").classList.add("hidden"); start(data.session);
 };
+$("pw").addEventListener("keydown", e => { if (e.key === "Enter") $("signin").click(); });
 $("logout").onclick = async () => { await sb.auth.signOut(); location.reload(); };
 
 async function start(session) {
@@ -137,12 +208,12 @@ async function refresh() {
   sel.innerHTML = projects.map(x => `<option value="${x.id}">${esc(x.customer)}</option>`).join("");
   if (cur) sel.value = cur;
   $("ptable").innerHTML = projects.map(x => {
-    const u = used[x.id] || 0, pct = Math.min(100, u / x.approved_hours * 100);
-    return `<tr><td>${esc(x.customer)}<br><small style="color:var(--mut)">${esc(x.email)}</small></td>
-      <td>${u.toFixed(2)} / ${Number(x.approved_hours).toFixed(2)} h<div class="bar"><i style="width:${pct}%;${pct>=100?'background:var(--warn)':''}"></i></div></td></tr>`;
+    const u = used[x.id] || 0, pct = Math.min(100, u / x.approved_hours * 100), full = pct >= 100;
+    return `<tr><td>${esc(x.customer)}<br><span class="sub">${esc(x.email)}</span></td>
+      <td><span class="num">${u.toFixed(2)} / ${Number(x.approved_hours).toFixed(2)} h</span><div class="bar${full ? " full" : ""}"><i style="width:${pct}%"></i></div>${full ? '<span class="flag">Kontingent ausgeschöpft</span>' : ""}</td></tr>`;
   }).join("") || `<tr><td colspan=2>Noch keine Projekte.</td></tr>`;
   const mine = e.data.slice(0, 15);
-  $("etable").innerHTML = mine.map(x => `<tr><td>${esc(x.work_date)}</td><td>${esc(x.projects?.customer)}</td><td>${fmt(x.hours)}</td><td>${esc(x.description)}</td></tr>`).join("")
+  $("etable").innerHTML = mine.map(x => `<tr><td class="num">${esc(x.work_date)}</td><td>${esc(x.projects?.customer)}</td><td class="num">${fmt(x.hours)}</td><td>${esc(x.description)}</td></tr>`).join("")
     || `<tr><td colspan=4>Noch keine Einträge.</td></tr>`;
 }
 
@@ -157,7 +228,44 @@ $("form").onsubmit = async ev => {
   if (error) return say($("msg"), "Fehler: " + error.message);
   say($("msg"), "Gespeichert.", true); $("hrs").value = ""; $("desc").value = ""; refresh();
 };
+</script>
 
+<script>
+/* ===== GRF Auto-Height Sender – NICHT VERÄNDERN ===== */
+(function () {
+  var lastHeight = 0, scheduled = false;
+  function getHeight() {
+    var b = document.body;
+    if (!b) return 0;
+    return Math.ceil(Math.max(b.scrollHeight, b.offsetHeight, b.getBoundingClientRect().height));
+  }
+  function send() {
+    scheduled = false;
+    var h = getHeight();
+    if (h > 0 && Math.abs(h - lastHeight) > 1) {   // nur echte Änderungen senden, kein Loop
+      lastHeight = h;
+      window.parent.postMessage({ height: h }, '*');
+    }
+  }
+  function schedule() {
+    if (scheduled) return;
+    scheduled = true;
+    (window.requestAnimationFrame || setTimeout)(send);
+  }
+  window.addEventListener('load', schedule);
+  window.addEventListener('resize', schedule);
+  window.addEventListener('orientationchange', function () { setTimeout(schedule, 300); });
+  document.addEventListener('click', function () { setTimeout(schedule, 100); }, true);
+  if (window.ResizeObserver) new ResizeObserver(schedule).observe(document.body);
+  if (window.MutationObserver) {
+    new MutationObserver(schedule).observe(document.body, {
+      childList: true, subtree: true, attributes: true, characterData: true
+    });
+  }
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(schedule);
+  [100, 500, 1500].forEach(function (t) { setTimeout(schedule, t); });
+  schedule();
+})();
 </script>
 </body>
 </html>
